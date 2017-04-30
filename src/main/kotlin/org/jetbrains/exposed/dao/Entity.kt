@@ -117,14 +117,16 @@ class View<out Target: Entity<*>> (val op : Op<Boolean>, val factory: EntityClas
 
 @Suppress("UNCHECKED_CAST")
 class InnerTableLink<ID:Any, Target: Entity<ID>>(val table: Table,
-                                     val target: EntityClass<ID, Target>) {
+                                                 val target: EntityClass<ID, Target>,
+                                                 val source: Column<*>? = null) {
+
     private fun getSourceRefColumn(o: Entity<*>): Column<EntityID<*>> {
-        val sourceRefColumn = table.columns.singleOrNull { it.referee == o.klass.table.id } as? Column<EntityID<*>> ?: error("Table does not reference source")
+        val sourceRefColumn = table.columns.singleOrNull { it.referee == o.klass.table.id && if(source == null) true else it == source } as? Column<EntityID<*>> ?: error("Table does not reference source")
         return sourceRefColumn
     }
 
     private fun getTargetRefColumn(): Column<EntityID<*>> {
-        val sourceRefColumn = table.columns.singleOrNull { it.referee == target.table.id } as? Column<EntityID<*>> ?: error("Table does not reference target")
+        val sourceRefColumn = table.columns.singleOrNull { it.referee == target.table.id && if(source == null) true else it != source } as? Column<EntityID<*>> ?: error("Table does not reference target")
         return sourceRefColumn
     }
 
@@ -249,6 +251,10 @@ open class Entity<ID:Any>(val id: EntityID<ID>) {
 
     infix fun <ID:Any, Target:Entity<ID>> EntityClass<ID, Target>.via(table: Table): InnerTableLink<ID, Target> {
         return InnerTableLink(table, this@via)
+    }
+
+    infix fun <ID:Any, Target:Entity<ID>> EntityClass<ID, Target>.via(sourceColumn: Column<EntityID<ID>>): InnerTableLink<ID, Target> {
+        return InnerTableLink(sourceColumn.table, this@via, sourceColumn)
     }
 
     fun <T: Entity<*>> s(c: EntityClass<T, *>): EntityClass<T, *> = c
